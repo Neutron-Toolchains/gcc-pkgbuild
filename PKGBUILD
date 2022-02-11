@@ -11,14 +11,14 @@ pkgname=(gcc gcc-libs gcc-fortran gcc-objc gcc-ada gcc-go lib32-gcc-libs gcc-d)
 pkgver=11.2.1
 _majorver=${pkgver%%.*}
 _islver=0.24
-pkgrel=1
+pkgrel=2
 pkgdesc='The GNU Compiler Collection'
 arch=(x86_64)
 license=(GPL LGPL FDL custom)
 url='https://gcc.gnu.org'
-makedepends=(binutils libmpc gcc-ada doxygen lib32-glibc lib32-gcc-libs python git libxcrypt)
-checkdepends=(dejagnu inetutils)
-options=(!emptydirs !lto)
+makedepends=(binutils libmpc gcc-ada doxygen lib32-glibc lib32-gcc-libs python git libxcrypt zstd)
+checkdepends=(dejagnu inetutils tcl expect python-pytest)
+options=(!emptydirs debug)
 _libdir=usr/lib/gcc/$CHOST/${pkgver%%+*}
 source=("git+https://gcc.gnu.org/git/gcc.git#branch=releases/gcc-$_majorver"
         https://libisl.sourceforge.io/isl-${_islver}.tar.xz
@@ -26,15 +26,13 @@ source=("git+https://gcc.gnu.org/git/gcc.git#branch=releases/gcc-$_majorver"
         c99
         gdc_phobos_path.patch
         gcc-ada-repro.patch
-        gcc11-Wno-format-security.patch
 )
 sha256sums=('SKIP'
             '043105cc544f416b48736fff8caf077fb0663a717d06b1113f16e391ac99ebad'
             'de48736f6e4153f03d0a5d38ceb6c6fdb7f054e8f47ddd6af0a3dbf14f27b931'
             '2513c6d9984dd0a2058557bf00f06d8d5181734e41dcfe07be7ed86f2959622a'
             'c86372c207d174c0918d4aedf1cb79f7fc093649eb1ad8d9450dccc46849d308'
-            '1773f5137f08ac1f48f0f7297e324d5d868d55201c03068670ee4602babdef2f'
-            '504e4b5a08eb25b6c35f19fdbe0c743ae4e9015d0af4759e74150006c283585e')
+            '1773f5137f08ac1f48f0f7297e324d5d868d55201c03068670ee4602babdef2f')
 
 prepare() {
   [[ ! -d gcc ]] && ln -s gcc-${pkgver/+/-} gcc
@@ -53,19 +51,21 @@ prepare() {
   sed -i "/ac_cpp=/s/\$CPPFLAGS/\$CPPFLAGS -O3/" {libiberty,gcc}/configure
 
   # D hacks
-  patch -p1 -i "$srcdir/gdc_phobos_path.patch"
+  patch -Np1 -i "$srcdir/gdc_phobos_path.patch"
 
   # Reproducible gcc-ada
   patch -Np0 < "$srcdir/gcc-ada-repro.patch"
-
-  # configure.ac: When adding -Wno-format, also add -Wno-format-security
-  patch -Np0 < "$srcdir/gcc11-Wno-format-security.patch"
-
+  
   mkdir -p "$srcdir/gcc-build"
 }
 
 build() {
   cd gcc-build
+
+  # remove lto
+  CFLAGS=${CFLAGS/-flto/}
+  CXXFLAGS=${CXXFLAGS/-flto/}
+  LDFLAGS=${LDFLAGS/-flto/}
 
   # Credits @allanmcrae
   # https://github.com/allanmcrae/toolchain/blob/f18604d70c5933c31b51a320978711e4e6791cf1/gcc/PKGBUILD
@@ -93,21 +93,26 @@ build() {
       --enable-default-ssp \
       --enable-gnu-indirect-function \
       --enable-gnu-unique-object \
-      --enable-install-libiberty \
       --enable-linker-build-id \
       --enable-lto \
       --enable-multilib \
+      --enable-pgo-build=lto \
       --enable-plugin \
       --enable-shared \
       --enable-threads=posix \
       --disable-libssp \
       --disable-libstdcxx-pch \
-      --disable-libunwind-exceptions \
       --disable-werror \
+      --with-build-config=bootstrap-lto \
+      --enable-link-serialization=1 \
       --with-pkgversion="Neutron GCC" \
       gdc_include_dir=/usr/include/dlang/gdc
 
-  make -O -j$(nproc --all)
+  # see https://bugs.archlinux.org/task/71777 for rationale re *FLAGS handling
+  make -O STAGE1_CFLAGS="-O3" \
+          BOOT_CFLAGS="$CFLAGS" \
+          BOOT_LDFLAGS="$LDFLAGS" \
+          LDFLAGS_FOR_TARGET="$LDFLAGS" -j$(nproc --all)
 
   # make documentation
   make -O -C $CHOST/libstdc++-v3/doc doc-man-doxygen -j$(nproc --all)
@@ -127,7 +132,7 @@ check() {
 package_gcc-libs() {
   pkgdesc='Runtime libraries shipped by GCC'
   depends=('glibc>=2.27')
-  options+=(!strip)
+  options=(!emptydirs !strip)
   provides=($pkgname-multilib libgo.so libgfortran.so libgphobos.so
             libubsan.so libasan.so libtsan.so liblsan.so)
   replaces=($pkgname-multilib libgphobos)
@@ -171,12 +176,12 @@ package_gcc-libs() {
 
 package_gcc() {
   pkgdesc="The GNU Compiler Collection - C and C++ frontends"
-  depends=("gcc-libs=$pkgver-$pkgrel" 'binutils>=2.28' libmpc)
+  depends=("gcc-libs=$pkgver-$pkgrel" 'binutils>=2.28' libmpc zstd)
   groups=('base-devel')
   optdepends=('lib32-gcc-libs: for generating code for 32-bit ABI')
   provides=($pkgname-multilib)
   replaces=($pkgname-multilib)
-  options+=(staticlibs)
+  options=(!emptydirs staticlibs debug)
 
   cd gcc-build
 
@@ -223,9 +228,6 @@ package_gcc() {
   make -C $CHOST/32/libitm DESTDIR="$pkgdir" install-nodist_toolexeclibHEADERS -j$(nproc --all)
   make -C $CHOST/32/libsanitizer DESTDIR="$pkgdir" install-nodist_{saninclude,toolexeclib}HEADERS -j$(nproc --all)
   make -C $CHOST/32/libsanitizer/asan DESTDIR="$pkgdir" install-nodist_toolexeclibHEADERS -j$(nproc --all)
-
-  make -C libiberty DESTDIR="$pkgdir" install -j$(nproc --all)
-  install -m644 libiberty/pic/libiberty.a "$pkgdir/usr/lib"
 
   make -C gcc DESTDIR="$pkgdir" install-man install-info -j$(nproc --all)
   rm "$pkgdir"/usr/share/man/man1/{gccgo,gfortran,gdc}.1
@@ -302,7 +304,7 @@ package_gcc-ada() {
   depends=("gcc=$pkgver-$pkgrel")
   provides=($pkgname-multilib)
   replaces=($pkgname-multilib)
-  options+=(staticlibs)
+  options=(!emptydirs staticlibs debug)
 
   cd gcc-build/gcc
   make DESTDIR="$pkgdir" ada.install-{common,info} -j$(nproc --all)
@@ -400,7 +402,7 @@ package_gcc-d() {
   depends=("gcc=$pkgver-$pkgrel")
   provides=(gdc)
   replaces=(gdc)
-  options=('staticlibs')
+  options=(staticlibs debug)
 
   cd gcc-build
   make -C gcc DESTDIR="$pkgdir" d.install-{common,man,info} -j$(nproc --all)
