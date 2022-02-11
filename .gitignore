@@ -1,0 +1,5 @@
+gcc/
+src/
+pkg/
+isl-*.tar.xz
+*gcc*.tar.zst
