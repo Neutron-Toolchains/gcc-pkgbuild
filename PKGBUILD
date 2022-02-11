@@ -11,7 +11,7 @@ pkgname=(gcc gcc-libs gcc-fortran gcc-objc gcc-ada gcc-go lib32-gcc-libs gcc-d)
 pkgver=11.2.1
 _majorver=${pkgver%%.*}
 _islver=0.24
-pkgrel=2
+pkgrel=3
 pkgdesc='The GNU Compiler Collection'
 arch=(x86_64)
 license=(GPL LGPL FDL custom)
@@ -26,13 +26,17 @@ source=("git+https://gcc.gnu.org/git/gcc.git#branch=releases/gcc-$_majorver"
         c99
         gdc_phobos_path.patch
         gcc-ada-repro.patch
-)
+        'fix-testsuite-default-pie.diff'
+        'fix-testsuite-default-ssp.diff')
+
 sha256sums=('SKIP'
             '043105cc544f416b48736fff8caf077fb0663a717d06b1113f16e391ac99ebad'
             'de48736f6e4153f03d0a5d38ceb6c6fdb7f054e8f47ddd6af0a3dbf14f27b931'
             '2513c6d9984dd0a2058557bf00f06d8d5181734e41dcfe07be7ed86f2959622a'
             'c86372c207d174c0918d4aedf1cb79f7fc093649eb1ad8d9450dccc46849d308'
-            '1773f5137f08ac1f48f0f7297e324d5d868d55201c03068670ee4602babdef2f')
+            '1773f5137f08ac1f48f0f7297e324d5d868d55201c03068670ee4602babdef2f'
+            '3f2fc47ec6c67ff080f69e0ac89e71f9374e50293b9f99a2509477c3bd4787d1'
+            'bd3ae897b0ed481acb32143f25e60f0b096bb36ab3bfea4d65197e09660da2ea')
 
 prepare() {
   [[ ! -d gcc ]] && ln -s gcc-${pkgver/+/-} gcc
@@ -56,6 +60,14 @@ prepare() {
   # Reproducible gcc-ada
   patch -Np0 < "$srcdir/gcc-ada-repro.patch"
   
+  # Credits @allanmcrae
+  # https://github.com/allanmcrae/toolchain/commit/f18604d70c5933c31b51a320978711e4e6791cf1
+  # TODO - submit upstream once development reopens
+  patch -p1 -i "${srcdir}"/fix-testsuite-default-pie.diff
+  # fix testsuite failures with default SSP
+  # upstream commit 90c31ff339015ddd89ac519656fbd23a36ee6271
+  patch -p1 -i "${srcdir}"/fix-testsuite-default-ssp.diff
+
   mkdir -p "$srcdir/gcc-build"
 }
 
