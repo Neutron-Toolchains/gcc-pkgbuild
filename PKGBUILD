@@ -7,11 +7,12 @@
 # toolchain build order: linux-api-headers->glibc->binutils->gcc->glibc->binutils->gcc
 # NOTE: libtool requires rebuilt with each new gcc version
 
-pkgname=(gcc gcc-libs gcc-fortran gcc-objc gcc-ada gcc-go lib32-gcc-libs gcc-d)
+pkgname=(gcc-neutron gcc-libs-neutron gcc-fortran-neutron gcc-objc-neutron gcc-ada-neutron gcc-go-neutron lib32-gcc-libs-neutron gcc-d-neutron)
+_multilib_prefix=(gcc gcc-libs gcc-fortran gcc-objc gcc-ada gcc-go lib32-gcc-libs gcc-d)
 pkgver=11.2.1
 _majorver=${pkgver%%.*}
 _islver=0.24
-pkgrel=3
+pkgrel=4
 pkgdesc='The GNU Compiler Collection'
 arch=(x86_64)
 license=(GPL LGPL FDL custom)
@@ -141,13 +142,14 @@ check() {
   "$srcdir/gcc/contrib/test_summary"
 }
 
-package_gcc-libs() {
+package_gcc-libs-neutron() {
   pkgdesc='Runtime libraries shipped by GCC'
   depends=('glibc>=2.27')
   options=(!emptydirs !strip)
-  provides=($pkgname-multilib libgo.so libgfortran.so libgphobos.so
+  provides=(gcc-libs $_multilib_prefix-multilib libgo.so libgfortran.so libgphobos.so
             libubsan.so libasan.so libtsan.so liblsan.so)
-  replaces=($pkgname-multilib libgphobos)
+  conflicts=(gcc-libs)
+  replaces=($_multilib_prefix-multilib libgphobos)
 
   cd gcc-build
   make -C $CHOST/libgcc DESTDIR="$pkgdir" install-shared -j$(nproc --all)
@@ -186,13 +188,14 @@ package_gcc-libs() {
     "$pkgdir/usr/share/licenses/gcc-libs/RUNTIME.LIBRARY.EXCEPTION"
 }
 
-package_gcc() {
+package_gcc-neutron() {
   pkgdesc="The GNU Compiler Collection - C and C++ frontends"
-  depends=("gcc-libs=$pkgver-$pkgrel" 'binutils>=2.28' libmpc zstd)
+  depends=("gcc-libs-neutron=$pkgver-$pkgrel" 'binutils>=2.28' libmpc zstd)
   groups=('base-devel')
   optdepends=('lib32-gcc-libs: for generating code for 32-bit ABI')
-  provides=($pkgname-multilib)
-  replaces=($pkgname-multilib)
+  provides=(gcc $_multilib_prefix-multilib)
+  conflicts=(gcc)
+  replaces=($_multilib_prefix-multilib)
   options=(!emptydirs staticlibs)
 
   cd gcc-build
@@ -271,11 +274,12 @@ package_gcc() {
     "$pkgdir/usr/share/licenses/$pkgname/"
 }
 
-package_gcc-fortran() {
+package_gcc-fortran-neutron() {
   pkgdesc='Fortran front-end for GCC'
-  depends=("gcc=$pkgver-$pkgrel")
-  provides=($pkgname-multilib)
-  replaces=($pkgname-multilib)
+  depends=("gcc-neutron=$pkgver-$pkgrel")
+  provides=(gcc-fortran $_multilib_prefix-multilib)
+  conflicts=(gcc-fortran)
+  replaces=($_multilib_prefix-multilib)
 
   cd gcc-build
   make -C $CHOST/libgfortran DESTDIR="$pkgdir" install-cafexeclibLTLIBRARIES \
@@ -294,11 +298,12 @@ package_gcc-fortran() {
     "$pkgdir/usr/share/licenses/$pkgname/"
 }
 
-package_gcc-objc() {
+package_gcc-objc-neutron() {
   pkgdesc='Objective-C front-end for GCC'
-  depends=("gcc=$pkgver-$pkgrel")
-  provides=($pkgname-multilib)
-  replaces=($pkgname-multilib)
+  depends=("gcc-neutron=$pkgver-$pkgrel")
+  provides=(gcc-objc $_multilib_prefix-multilib)
+  conflicts=(gcc-objc)
+  replaces=($_multilib_prefix-multilib)
 
   cd gcc-build
   make DESTDIR="$pkgdir" -C $CHOST/libobjc install-headers -j$(nproc --all)
@@ -311,11 +316,12 @@ package_gcc-objc() {
     "$pkgdir/usr/share/licenses/$pkgname/"
 }
 
-package_gcc-ada() {
+package_gcc-ada-neutron() {
   pkgdesc='Ada front-end for GCC (GNAT)'
-  depends=("gcc=$pkgver-$pkgrel")
-  provides=($pkgname-multilib)
-  replaces=($pkgname-multilib)
+  depends=("gcc-neutron=$pkgver-$pkgrel")
+  provides=(gcc-ada $_multilib_prefix-multilib)
+  conflicts=(gcc-ada)
+  replaces=($_multilib_prefix-multilib)
   options=(!emptydirs staticlibs)
 
   cd gcc-build/gcc
@@ -350,12 +356,12 @@ package_gcc-ada() {
     "$pkgdir/usr/share/licenses/$pkgname/"
 }
 
-package_gcc-go() {
+package_gcc-go-neutron() {
   pkgdesc='Go front-end for GCC'
-  depends=("gcc=$pkgver-$pkgrel")
-  provides=("go=1.12.2" $pkgname-multilib)
-  replaces=($pkgname-multilib)
-  conflicts=(go)
+  depends=("gcc-neutron=$pkgver-$pkgrel")
+  provides=("gcc-go" "go=1.12.2" "$_multilib_prefix-multilib")
+  conflicts=(gcc-go go)
+  replaces=($_multilib_prefix-multilib)
 
   cd gcc-build
   make -C $CHOST/libgo DESTDIR="$pkgdir" install-exec-am -j$(nproc --all)
@@ -372,10 +378,11 @@ package_gcc-go() {
     "$pkgdir/usr/share/licenses/$pkgname/"
 }
 
-package_lib32-gcc-libs() {
+package_lib32-gcc-libs-neutron() {
   pkgdesc='32-bit runtime libraries shipped by GCC'
   depends=('lib32-glibc>=2.27')
-  provides=(libgo.so libgfortran.so libubsan.so libasan.so)
+  provides=(lib32-gcc-libs libgo.so libgfortran.so libubsan.so libasan.so)
+  conflicts=(lib32-gcc-libs)
   groups=(multilib-devel)
   options=(!emptydirs !strip)
 
@@ -409,10 +416,11 @@ package_lib32-gcc-libs() {
     "$pkgdir/usr/share/licenses/lib32-gcc-libs/RUNTIME.LIBRARY.EXCEPTION"
 }
 
-package_gcc-d() {
+package_gcc-d-neutron() {
   pkgdesc="D frontend for GCC"
-  depends=("gcc=$pkgver-$pkgrel")
-  provides=(gdc)
+  depends=("gcc-neutron=$pkgver-$pkgrel")
+  provides=(gdc gcc-d)
+  conflicts=(gcc-d)
   replaces=(gdc)
   options=(staticlibs)
 
