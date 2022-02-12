@@ -18,7 +18,7 @@ license=(GPL LGPL FDL custom)
 url='https://gcc.gnu.org'
 makedepends=(binutils libmpc gcc-ada doxygen lib32-glibc lib32-gcc-libs python git libxcrypt zstd)
 checkdepends=(dejagnu inetutils tcl expect python-pytest)
-options=(!emptydirs debug)
+options=(!emptydirs)
 _libdir=usr/lib/gcc/$CHOST/${pkgver%%+*}
 source=("git+https://gcc.gnu.org/git/gcc.git#branch=releases/gcc-$_majorver"
         https://libisl.sourceforge.io/isl-${_islver}.tar.xz
@@ -193,7 +193,7 @@ package_gcc() {
   optdepends=('lib32-gcc-libs: for generating code for 32-bit ABI')
   provides=($pkgname-multilib)
   replaces=($pkgname-multilib)
-  options=(!emptydirs staticlibs debug)
+  options=(!emptydirs staticlibs)
 
   cd gcc-build
 
@@ -316,7 +316,7 @@ package_gcc-ada() {
   depends=("gcc=$pkgver-$pkgrel")
   provides=($pkgname-multilib)
   replaces=($pkgname-multilib)
-  options=(!emptydirs staticlibs debug)
+  options=(!emptydirs staticlibs)
 
   cd gcc-build/gcc
   make DESTDIR="$pkgdir" ada.install-{common,info} -j$(nproc --all)
@@ -414,7 +414,7 @@ package_gcc-d() {
   depends=("gcc=$pkgver-$pkgrel")
   provides=(gdc)
   replaces=(gdc)
-  options=(staticlibs debug)
+  options=(staticlibs)
 
   cd gcc-build
   make -C gcc DESTDIR="$pkgdir" d.install-{common,man,info} -j$(nproc --all)
